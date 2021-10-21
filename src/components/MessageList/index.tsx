@@ -1,5 +1,6 @@
 import styles from "./styles.module.scss";
 import { api } from "../../services/api";
+import { io } from "socket.io-client";
 import logoImg from "../../assets/logo.svg";
 import { useEffect, useState } from "react";
 
@@ -12,8 +13,27 @@ type Message = {
   };
 };
 
+const messagesQueue: Message[] = [];
+
+const socket = io("http://localhost:4000");
+
+socket.on("new_message", (newMessage: Message) => {
+  messagesQueue.push(newMessage);
+});
+
 export function MessageList() {
   const [messages, setMessages] = useState<Message[]>([]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (messagesQueue.length > 0) {
+        setMessages((prevState) =>
+          [messagesQueue[0], prevState[0], prevState[1]].filter(Boolean)
+        );
+        messagesQueue.shift();
+      }
+    });
+  });
 
   useEffect(() => {
     api.get<Message[]>("messages/last3").then((response) => {
@@ -29,15 +49,10 @@ export function MessageList() {
         {messages.map((message) => {
           return (
             <li key={message.id} className={styles.message}>
-              <p className={styles.messageContent}>
-                {message.text}
-              </p>
+              <p className={styles.messageContent}>{message.text}</p>
               <div className={styles.messageUser}>
                 <div className={styles.userImage}>
-                  <img
-                    src={message.user.avatar_url}
-                    alt={message.user.name}
-                  />
+                  <img src={message.user.avatar_url} alt={message.user.name} />
                 </div>
                 <span>{message.user.name}</span>
               </div>
